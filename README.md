@@ -6,7 +6,7 @@ that do not use spaces between words, such as Mandarin Chinese, Wu Chinese
 
 This tool is designed as a drop-in replacement for the Python-based tokenizer
 used in [Apertium](https://apertium.org) language packages. It is approximately
-**100× faster** and produces identical output.
+**76× faster** and produces identical output.
 
 ## Background
 
@@ -100,17 +100,11 @@ In `modes.xml`, replace the Python tokenizer step:
 Gold-standard test sets are in the `eval/` directory. To evaluate:
 
 ```bash
-# Wuu Chinese
-python3 -c "
-lines = open('eval/gold_wuu.txt').readlines()
-for l in lines: print(''.join(l.split()))
-" | ./tokeniser wuu_autotok_scraped.txt | python3 eval/evaluate.py eval/gold_wuu.txt
+# Wu Chinese
+cat eval/gold_wuu.txt | tr -d ' ' | ./tokeniser wuu_autotok_scraped.txt | python3 eval/evaluate.py eval/gold_wuu.txt
 
 # Mandarin
-python3 -c "
-lines = open('eval/gold_zho.txt').readlines()
-for l in lines: print(''.join(l.split()))
-" | ./tokeniser zho_autotok_scraped.txt | python3 eval/evaluate.py eval/gold_zho.txt
+cat eval/gold_zho.txt | tr -d ' ' | ./tokeniser zho_autotok_scraped.txt | python3 eval/evaluate.py eval/gold_zho.txt
 ```
 
 ### Results
@@ -126,34 +120,12 @@ On 500 lines of Wu Chinese input:
 
 | Tokenizer | Time | Relative speed |
 |-----------|------|----------------|
-| Python (`tokeniser.py` + HFST) | 0.39s | 1× |
-| C++ (`tokeniser` + word list) | 0.004s | ~100× faster |
+| Python (`tokeniser.py` + HFST) | 0.46s | 1× |
+| C++ (`tokeniser` + word list) | 0.006s | ~76× faster |
 
 ## How it works
 
-1. **Word list loading**: at startup, all words from the word list file are
-   loaded into a hash set. Each individual character from every word is also
-   stored in a character set (the "alphabet"), so the tokenizer knows which
-   characters belong to the target script.
-
-2. **Stream processing**: input is read line by line. Consecutive in-alphabet
-   characters are grouped into a chunk; non-alphabet characters (punctuation,
-   spaces, digits) are passed through unchanged.
-
-3. **LRLM segmentation**: each chunk of target-script characters is segmented
-   using Left-to-Right Longest Match — at each position, try the longest
-   possible word first, decreasing until a known word is found. Unknown
-   single characters are emitted as-is.
-
-## Supported languages (tested)
-
-| Language | Script | Word list source |
-|----------|--------|-----------------|
-| Wu Chinese (Wuu) | CJK | `autotok_scraper.py` + `.hfst` |
-| Mandarin (Zho) | CJK | `dix_scraper.py` + `.dix` |
-
-Any other Apertium language package with a spaceless script should work
-by following the same steps.
+At startup, all words from the word list are loaded into a hash set; every character appearing in any word forms the "alphabet" (the target script). Input is then processed line by line: runs of in-alphabet characters are segmented with LRLM, while everything else (punctuation, spaces, digits, Latin text) passes through unchanged. Unknown single characters are emitted as-is.
 
 ## Files
 
@@ -166,4 +138,3 @@ by following the same steps.
 | `eval/evaluate.py` | Computes precision/recall/F1 vs. gold standard |
 | `eval/gold_wuu.txt` | Hand-annotated Wu Chinese test sentences |
 | `eval/gold_zho.txt` | Hand-annotated Mandarin test sentences |
-# apertium-spaceless-tokenizer
